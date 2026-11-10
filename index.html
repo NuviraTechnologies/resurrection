@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resurrection — AI Subscription Recovery</title>
+<style>
+  :root { --bg:#070a0e; --card:#10161f; --card2:#0c1119; --line:#22303f;
+          --txt:#e2edf7; --dim:#7d93a8; --green:#2ee06f; --red:#ff4d5e;
+          --amber:#ffb02e; --blue:#3ea6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; color:var(--txt);
+         background:
+           radial-gradient(1100px 500px at 70% -10%, rgba(46,224,111,.07), transparent 60%),
+           radial-gradient(900px 500px at 10% -10%, rgba(255,77,94,.05), transparent 60%),
+           var(--bg);
+         font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+  header { display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+           padding:16px 22px 10px; max-width:1460px; margin:0 auto; }
+  h1 { font-size:30px; margin:0; letter-spacing:2px; font-weight:900; }
+  h1 .cross { color:var(--red); text-shadow:0 0 14px rgba(255,77,94,.8); }
+  h1 .name { background:linear-gradient(90deg,#e2edf7,#9fd8ff);
+             -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .badge { font-weight:700; font-size:12px; padding:5px 10px; border-radius:6px;
+           letter-spacing:1px; }
+  .badge.sim { background:#4a3503; color:var(--amber); border:1px solid var(--amber); }
+  .badge.live { background:#06351a; color:var(--green); border:1px solid var(--green); }
+  .tagline { color:var(--dim); font-size:13.5px; width:100%; margin-top:2px; }
+  .tagline b { color:var(--txt); }
+
+  /* ---- caption bar (filming subtitles + demo button) ---- */
+  #captionbar { max-width:1460px; margin:4px auto 0; padding:0 22px;
+                display:flex; gap:14px; align-items:stretch; }
+  #caption { flex:1; display:flex; align-items:center; gap:12px;
+             background:#0a0e14; border:1px solid var(--line);
+             border-left:4px solid var(--red); border-radius:10px;
+             padding:12px 16px; min-height:58px;
+             font-size:19px; font-weight:600; line-height:1.35;
+             transition:border-color .4s; }
+  #caption .demotag { font-size:10px; letter-spacing:2px; color:var(--amber);
+                      border:1px solid var(--amber); border-radius:4px;
+                      padding:3px 6px; white-space:nowrap; display:none; }
+  body.demo-running #caption .demotag { display:block; }
+  #caption.good { border-left-color:var(--green); }
+  #caption.mid  { border-left-color:var(--amber); }
+  #b-demo { background:linear-gradient(180deg,#0f4d24,#0a3016); color:#eafff1;
+            border:1px solid var(--green); border-radius:10px;
+            font-size:17px; font-weight:800; letter-spacing:1px;
+            padding:0 26px; cursor:pointer; white-space:nowrap;
+            box-shadow:0 0 18px rgba(46,224,111,.25); }
+  #b-demo:hover:not(:disabled){ box-shadow:0 0 26px rgba(46,224,111,.5); }
+  #b-demo:disabled { opacity:.45; cursor:not-allowed; box-shadow:none; }
+
+  /* ---- stage stepper ---- */
+  #stepper { max-width:1460px; margin:14px auto 0; padding:0 22px;
+             display:flex; align-items:flex-start; }
+  .step { flex:0 0 auto; text-align:center; width:118px; }
+  .step .dot { width:34px; height:34px; margin:0 auto; border-radius:50%;
+               border:2px solid var(--line); background:var(--card);
+               display:flex; align-items:center; justify-content:center;
+               font-size:15px; font-weight:800; color:var(--dim);
+               transition:all .45s; }
+  .step .lbl { margin-top:7px; font-size:11px; letter-spacing:2px;
+               color:var(--dim); font-weight:700; transition:color .45s; }
+  .step .sub { font-size:10.5px; color:#54687c; margin-top:2px; }
+  .step.done .dot { border-color:var(--green); background:#0d3a1e; color:var(--green); }
+  .step.done .lbl { color:var(--green); }
+  .step.now .dot { border-color:var(--amber); color:var(--amber);
+                   box-shadow:0 0 16px rgba(255,176,46,.45);
+                   animation:pulse 1.1s ease-in-out infinite; }
+  .step.now .lbl { color:var(--amber); }
+  .step.dead .dot { border-color:var(--red); color:var(--red);
+                    box-shadow:0 0 16px rgba(255,77,94,.5);
+                    animation:pulse 1.1s ease-in-out infinite; }
+  .step.dead .lbl { color:var(--red); }
+  .step.alive .dot { border-color:var(--green); color:#062b13;
+                     background:var(--green);
+                     box-shadow:0 0 22px rgba(46,224,111,.75); }
+  .step.alive .lbl { color:var(--green); }
+  .link { flex:1; height:2px; background:var(--line); margin-top:17px;
+          border-radius:2px; transition:background .45s; }
+  .link.done { background:var(--green); }
+  @keyframes pulse { 0%,100%{ transform:scale(1);} 50%{ transform:scale(1.13);} }
+
+  main { display:grid; grid-template-columns:minmax(340px,5fr) minmax(340px,7fr);
+         gap:16px; padding:16px 22px 4px; max-width:1460px; margin:0 auto; }
+  @media (max-width:980px){ main{ grid-template-columns:1fr; } }
+  .card { background:linear-gradient(180deg,var(--card),var(--card2));
+          border:1px solid var(--line); border-radius:14px; padding:16px;
+          margin-bottom:16px; box-shadow:0 8px 24px rgba(0,0,0,.35); }
+  .card h2 { margin:0 0 12px; font-size:12px; letter-spacing:2.5px;
+             color:var(--dim); text-transform:uppercase; }
+  .member { font-size:21px; font-weight:800; }
+  .row { display:flex; justify-content:space-between; gap:10px; padding:5px 0;
+         font-size:14px; border-bottom:1px dashed #1b2836; }
+  .row b { font-weight:600; text-align:right; word-break:break-word; }
+  .status { font-weight:800; letter-spacing:1px; }
+  .st-flat { color:var(--red); } .st-rev { color:var(--green); }
+  .st-mid { color:var(--amber); }
+
+  /* ---- EKG / vitals ---- */
+  #ekgwrap { position:relative; }
+  #ekg { width:100%; height:180px; display:block; background:#04070a;
+         border-radius:10px; border:1px solid #16222e; }
+  .vitals { display:flex; gap:10px; margin-top:12px; flex-wrap:wrap; }
+  .vital { flex:1; min-width:110px; background:#0a0f16; border:1px solid var(--line);
+           border-radius:10px; padding:9px 12px; }
+  .vital .k { font-size:10px; letter-spacing:2px; color:var(--dim); }
+  .vital .v { font-size:24px; font-weight:800; font-variant-numeric:tabular-nums;
+              line-height:1.15; }
+  .vital .v small { font-size:11px; color:var(--dim); font-weight:600; }
+  #vcond.code { color:var(--red); animation:pulse 1s ease-in-out infinite; }
+  #vcond.stable { color:var(--green); }
+
+  /* ---- counter ---- */
+  .counter { font-size:74px; font-weight:900; color:var(--green);
+             font-variant-numeric:tabular-nums; line-height:1;
+             text-shadow:0 0 26px rgba(46,224,111,.35); }
+  .counter small { font-size:12px; color:var(--dim); font-weight:600;
+                   display:block; margin-top:9px; letter-spacing:2px; }
+  .counter.surge { animation:surge 1.2s ease-out; }
+  @keyframes surge { 0%{ transform:scale(1);} 25%{ transform:scale(1.07);
+             text-shadow:0 0 44px rgba(46,224,111,.9);} 100%{ transform:scale(1);} }
+
+  /* ---- controls ---- */
+  .steps { display:flex; flex-wrap:wrap; gap:8px; }
+  button.step-btn { background:#16222e; color:var(--txt); border:1px solid var(--line);
+           border-radius:8px; padding:10px 14px; font-size:14px; cursor:pointer; }
+  button.step-btn:hover:not(:disabled){ border-color:var(--blue); }
+  button:disabled { opacity:.35; cursor:not-allowed; }
+  .errbar { color:var(--red); font-size:14px; min-height:18px; margin-top:8px; }
+
+  /* ---- medical chart ---- */
+  .chart { border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .chart-head { display:flex; justify-content:space-between; gap:10px;
+                background:#0a0f16; border-bottom:1px solid var(--line);
+                padding:9px 13px; font-size:11px; letter-spacing:2px;
+                color:var(--dim); font-weight:700; }
+  .chart-head .att { color:var(--amber); }
+  .chart-row { display:flex; gap:12px; padding:10px 13px;
+               border-bottom:1px dashed #1b2836; font-size:14px; }
+  .chart-row:last-child { border-bottom:none; }
+  .chart-row .k { flex:0 0 108px; font-size:10.5px; letter-spacing:1.5px;
+                  color:var(--dim); font-weight:700; padding-top:2px; }
+  .chart-row .v { flex:1; line-height:1.5; white-space:pre-wrap; }
+  .rx { border:1px dashed #33506b; border-radius:10px; padding:12px 14px;
+        background:#0b1219; }
+  .rx .rxhead { font-size:20px; font-weight:900; color:var(--blue); }
+  .rx .rxhead span { font-size:11px; letter-spacing:2px; color:var(--dim);
+                     font-weight:700; margin-left:8px; }
+  .rx .msg { white-space:pre-wrap; font-size:14px; line-height:1.55; margin-top:8px; }
+
+  /* ---- terminal log ---- */
+  #logwrap { max-height:460px; overflow-y:auto; background:#04070a;
+             border:1px solid #16222e; border-radius:10px; padding:10px 12px;
+             font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; }
+  .lline { padding:2.5px 0; border-bottom:1px solid #0d141d; line-height:1.5;
+           word-break:break-word; }
+  .lline .ts { color:#54687c; }
+  .lline .m { color:var(--blue); font-weight:700; }
+  .lline .st-ok { color:var(--green); font-weight:700; }
+  .lline .st-err { color:var(--red); font-weight:700; }
+  .lline .note { color:#a9bfd2; }
+  .lline.sys .note { color:var(--amber); }
+  .simtag { color:var(--amber); font-weight:700; }
+  .livetag { color:var(--blue); font-weight:700; }
+  a { color:var(--blue); }
+
+  /* ---- contrast panel ---- */
+  #contrast { max-width:1460px; margin:0 auto; padding:6px 22px 26px; }
+  .versus { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:980px){ .versus{ grid-template-columns:1fr; } }
+  .side { border-radius:14px; padding:18px; border:1px solid var(--line); }
+  .side.native { background:linear-gradient(180deg,#170d10,#100a0d);
+                 border-color:#3a2027; }
+  .side.resc { background:linear-gradient(180deg,#0a1a10,#0a120d);
+               border-color:#1e4630; box-shadow:0 0 30px rgba(46,224,111,.08); }
+  .side h3 { margin:0 0 4px; font-size:16px; letter-spacing:1.5px; }
+  .side.native h3 { color:var(--red); }
+  .side.resc h3 { color:var(--green); }
+  .side .sub { color:var(--dim); font-size:12.5px; margin-bottom:14px; }
+  .tl { list-style:none; margin:0; padding:0; }
+  .tl li { display:flex; gap:12px; padding:8px 0; font-size:14.5px;
+           border-bottom:1px dashed rgba(255,255,255,.06); align-items:baseline; }
+  .tl li:last-child { border-bottom:none; }
+  .tl .when { flex:0 0 74px; font-size:11px; letter-spacing:1px; font-weight:800;
+              color:var(--dim); }
+  .side.native .tl .when { color:#b0566a; }
+  .side.resc .tl .when { color:var(--green); }
+  .tl .outcome { font-weight:800; }
+  .side.native .outcome { color:var(--red); }
+  .side.resc .outcome { color:var(--green); }
+  .volumeline { text-align:center; font-size:19px; font-weight:800;
+                letter-spacing:.3px; margin-top:18px; padding:15px;
+                border:1px solid var(--line); border-radius:12px;
+                background:#0a0f16; }
+  .volumeline span { color:var(--green); }
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="cross">✚</span> <span class="name">RESURRECTION</span></h1>
+  <div id="modebadge" class="badge sim">…</div>
+  <div class="tagline">PayPal's native answer to a failed subscription payment is two silent retries and a suspension.
+  <b>Resurrection is the recovery ward:</b> diagnose, invoice, capture, revive — every step a real PayPal API call.</div>
+</header>
+
+<div id="captionbar">
+  <div id="caption"><span class="demotag">DEMO</span><span id="captiontext">Hit RUN THE DEMO — a dead subscription comes back to life in five moves.</span></div>
+  <button id="b-demo">▶ RUN THE DEMO</button>
+</div>
+
+<div id="stepper">
+  <div class="step" id="step-0"><div class="dot">✚</div><div class="lbl">FLATLINED</div><div class="sub">payment failed</div></div>
+  <div class="link" id="link-0"></div>
+  <div class="step" id="step-1"><div class="dot">2</div><div class="lbl">DIAGNOSED</div><div class="sub">AI reads the failure</div></div>
+  <div class="link" id="link-1"></div>
+  <div class="step" id="step-2"><div class="dot">3</div><div class="lbl">INVOICED</div><div class="sub">one clear bill</div></div>
+  <div class="link" id="link-2"></div>
+  <div class="step" id="step-3"><div class="dot">4</div><div class="lbl">PAID</div><div class="sub">member pays</div></div>
+  <div class="link" id="link-3"></div>
+  <div class="step" id="step-4"><div class="dot">5</div><div class="lbl">REVIVED</div><div class="sub">back from the dead</div></div>
+</div>
+
+<main>
+  <section>
+    <div class="card">
+      <h2>Patient — Subscription</h2>
+      <div class="member" id="member">No patient admitted</div>
+      <div class="row"><span>Subscription</span><b id="subid">—</b></div>
+      <div class="row"><span>Plan</span><b id="plan">—</b></div>
+      <div class="row"><span>Status</span><b class="status" id="pstatus">—</b></div>
+      <div class="row"><span>Stage</span><b id="stage">—</b></div>
+      <div class="row"><span>Failed payments</span><b id="failed">—</b></div>
+      <div class="row"><span>Outstanding balance</span><b id="outstanding">—</b></div>
+      <div class="row"><span>Recovery invoice</span><b id="invoice">—</b></div>
+      <div class="row"><span>Capture</span><b id="capture">—</b></div>
+    </div>
+    <div class="card">
+      <h2>Heartbeat Monitor</h2>
+      <div id="ekgwrap"><canvas id="ekg" width="920" height="180"></canvas></div>
+      <div class="vitals">
+        <div class="vital"><div class="k">HEART RATE</div><div class="v" id="vhr">— <small>BPM</small></div></div>
+        <div class="vital"><div class="k">CONDITION</div><div class="v" id="vcond" style="font-size:19px;">NO PATIENT</div></div>
+        <div class="vital"><div class="k">PROGNOSIS</div><div class="v" id="vprog" style="font-size:19px;">—</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Recovered Revenue</h2>
+      <div class="counter" id="counterbox">$<span id="counter">0.00</span>
+        <small>FROM PAYPAL'S OWN INVOICE PAYMENT RECORDS — TRANSACTION SEARCH VERIFIES WHEN AVAILABLE</small></div>
+    </div>
+    <div class="card">
+      <h2>Controls — manual override</h2>
+      <div class="steps">
+        <button class="step-btn" id="b-seed">1 · Admit patient (seed failure)</button>
+        <button class="step-btn" id="b-diag">2 · AI diagnosis</button>
+        <button class="step-btn" id="b-inv">3 · Send recovery invoice</button>
+        <button class="step-btn" id="b-pay">4 · Member pays / check</button>
+        <button class="step-btn" id="b-rec">5 · Settle + reactivate</button>
+      </div>
+      <div class="errbar" id="errbar"></div>
+    </div>
+  </section>
+  <section>
+    <div class="card">
+      <h2>Patient Chart — AI Diagnosis</h2>
+      <div class="chart">
+        <div class="chart-head"><span>RECOVERY WARD · CHART NO. <span id="chartno">—</span></span><span class="att">ATTENDING: RESURRECTION (AI)</span></div>
+        <div class="chart-row"><div class="k">PATIENT</div><div class="v" id="chartpatient">No patient admitted.</div></div>
+        <div class="chart-row"><div class="k">CONDITION</div><div class="v" id="chartcond">—</div></div>
+        <div class="chart-row"><div class="k">FINDINGS</div><div class="v" id="diagnosis">No diagnosis yet. Admit a patient and run the diagnosis.</div></div>
+        <div class="chart-row"><div class="k">TREATMENT</div><div class="v">One recovery invoice for exactly the missed amount. On payment: capture the outstanding balance and reactivate the subscription. No rejoining, no new plan, no fees.</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Prescription — message sent to the member</h2>
+      <div class="rx">
+        <div class="rxhead">℞<span>TAKE ONE INVOICE — REPEAT MEMBERSHIP AS BEFORE</span></div>
+        <div class="msg" id="membermsg">—</div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Event Log — every API call, as it happens</h2>
+      <div id="logwrap"></div>
+    </div>
+  </section>
+</main>
+
+<div id="contrast">
+  <div class="versus">
+    <div class="side native">
+      <h3>✕ LEFT FOR DEAD — PAYPAL'S NATIVE HANDLING</h3>
+      <div class="sub">What happens today when a member's payment fails.</div>
+      <ul class="tl">
+        <li><span class="when">DAY 0</span><span>A payment fails. The member is told nothing.</span></li>
+        <li><span class="when">DAY 5</span><span>Silent retry #1. Fails again. Still no word to the member.</span></li>
+        <li><span class="when">DAY 10</span><span>Silent retry #2. Fails. That's the whole policy.</span></li>
+        <li><span class="when">DAY 10+</span><span>Subscription suspended. Membership over. The business finds out later — or never.</span></li>
+        <li><span class="when">RESULT</span><span class="outcome">Member gone · $0 recovered · Nobody was ever told why</span></li>
+      </ul>
+    </div>
+    <div class="side resc">
+      <h3>✚ BROUGHT BACK — WITH RESURRECTION</h3>
+      <div class="sub">The same failed payment, treated as recoverable.</div>
+      <ul class="tl">
+        <li><span class="when">MINUTE 0</span><span>Resurrection detects the suspended subscription and reads the failure record.</span></li>
+        <li><span class="when">MINUTE 1</span><span>AI diagnosis: what failed, how much is owed, written in plain language.</span></li>
+        <li><span class="when">MINUTE 2</span><span>One clear recovery invoice for exactly the missed amount — with the explanation riding on it.</span></li>
+        <li><span class="when">ON PAY</span><span>The member pays. Any balance PayPal reports is captured, subscription reactivated. No rejoining, no new plan.</span></li>
+        <li><span class="when">RESULT</span><span class="outcome">Member kept · Revenue recovered · Verified against PayPal's own invoice records</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="volumeline">Every dead subscription is dead transaction volume — <span>for the merchant and for PayPal.</span></div>
+</div>
+
+<script>
+let S = null, displayedTotal = 0, lastTarget = 0, busy = false, demoRunning = false;
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function api(path) {
+  const isAction = path !== '/api/state';
+  if (isAction) {
+    if (busy) return S;               // swallow double-clicks mid-flight
+    busy = true;
+    document.querySelectorAll('.steps button, #b-demo')
+      .forEach(b => b.disabled = true);
+  }
+  try {
+    const res = await fetch(path, {method: isAction ? 'POST' : 'GET'});
+    const data = await res.json();
+    const bar = document.getElementById('errbar');
+    if (data.error) bar.textContent = 'Error: ' + data.error;
+    else if (isAction) bar.textContent = '';   // clear stale errors on success
+    render(data);
+    return data;
+  } catch (e) {
+    document.getElementById('errbar').textContent =
+      'Error: could not reach the Resurrection server. Is it still running?';
+    return S;
+  } finally {
+    if (isAction) { busy = false; if (S) updateButtons(S.patient); }
+  }
+}
+
+const STAGE_IDX = {FLATLINED:0, DIAGNOSED:1, INVOICED:2, PAID:3, REVIVED:4};
+
+function render(data) {
+  if (!data.patient) return;
+  S = data;
+  const p = data.patient;
+  const badge = document.getElementById('modebadge');
+  badge.textContent = data.mode === 'SIM'
+    ? 'SIM MODE — simulated PayPal traffic, clearly labeled'
+    : 'LIVE — PayPal sandbox';
+  badge.className = 'badge ' + (data.mode === 'SIM' ? 'sim' : 'live');
+  document.getElementById('member').textContent =
+    p.seeded ? (p.member_name + ' · ' + (p.member_email || '')) : 'No patient admitted';
+  document.getElementById('subid').textContent = p.subscription_id || '—';
+  document.getElementById('plan').textContent = p.plan_name || '—';
+  const st = document.getElementById('pstatus');
+  st.textContent = p.status || '—';
+  st.className = 'status ' + (p.status === 'ACTIVE' ? 'st-rev'
+               : p.status === 'SUSPENDED' ? 'st-flat' : 'st-mid');
+  document.getElementById('stage').textContent = p.stage;
+  document.getElementById('failed').textContent = p.seeded ? p.failed_payments : '—';
+  document.getElementById('outstanding').textContent =
+    p.seeded ? '$' + p.outstanding : '—';
+  document.getElementById('invoice').innerHTML = p.invoice_id
+    ? esc(p.invoice_id) + ' (' + esc(p.invoice_status || '') + ')' +
+      (p.invoice_link ? ' · <a href="' + esc(p.invoice_link) + '" target="_blank" rel="noopener">payer view</a>' : '')
+    : '—';
+  document.getElementById('capture').textContent = p.capture_id || '—';
+  // medical chart
+  document.getElementById('chartno').textContent =
+    p.subscription_id ? p.subscription_id.slice(-6) : '—';
+  document.getElementById('chartpatient').textContent = p.seeded
+    ? (p.member_name + ' — ' + (p.plan_name || '') + ', $' + (p.amount || '0.00') + '/cycle')
+    : 'No patient admitted.';
+  document.getElementById('chartcond').textContent = p.seeded
+    ? ((p.status || '—') + ' · ' + p.failed_payments + ' failed payment(s) · $' + p.outstanding + ' outstanding')
+    : '—';
+  document.getElementById('diagnosis').textContent =
+    p.diagnosis || 'No diagnosis yet. Admit a patient and run the diagnosis.';
+  document.getElementById('membermsg').textContent = p.member_message || '—';
+  // terminal log — chronological, newest at the bottom, auto-scrolled
+  const wrap = document.getElementById('logwrap');
+  wrap.innerHTML = data.events.map(e => {
+    const ok = e.status >= 200 && e.status < 300;
+    const sys = e.method === '—';
+    return '<div class="lline' + (sys ? ' sys' : '') + '"><span class="ts">' +
+      esc(e.ts) + '</span> <span class="m">' + esc(e.method) + '</span> ' +
+      esc(e.endpoint) + ' → <span class="' + (ok ? 'st-ok' : 'st-err') + '">' +
+      esc(e.status) + '</span> ' + (e.sim ? '<span class="simtag">SIM</span>'
+      : '<span class="livetag">LIVE</span>') +
+      ' <span class="note">' + esc(e.note || '') + '</span></div>';
+  }).join('');
+  wrap.scrollTop = wrap.scrollHeight;
+  animateCounter(parseFloat(p.recovered_total || 0));
+  updateStepper(p);
+  updateVitals(p);
+  updateButtons(p);
+}
+
+function updateStepper(p) {
+  const idx = STAGE_IDX[p.stage];
+  for (let i = 0; i < 5; i++) {
+    const el = document.getElementById('step-' + i);
+    el.className = 'step';
+    if (idx === undefined) break;
+    if (p.stage === 'REVIVED') el.classList.add(i < 4 ? 'done' : 'alive');
+    else if (i < idx) el.classList.add('done');
+    else if (i === idx) el.classList.add(p.stage === 'FLATLINED' ? 'dead' : 'now');
+    if (i < 4) document.getElementById('link-' + i).className =
+      'link' + (idx !== undefined && i < idx ? ' done' : '');
+  }
+}
+
+function updateVitals(p) {
+  const hr = document.getElementById('vhr'), cond = document.getElementById('vcond'),
+        prog = document.getElementById('vprog');
+  const set = (h, c, cls, pr) => {
+    hr.innerHTML = h; cond.textContent = c; cond.className = 'v ' + cls; prog.textContent = pr; };
+  if (!p.seeded) set('— <small>BPM</small>', 'NO PATIENT', '', '—');
+  else if (p.stage === 'FLATLINED') set('0 <small>BPM</small>', 'CODE BLUE', 'code', 'GUARDED — TREATABLE');
+  else if (p.stage === 'DIAGNOSED') set('38 <small>BPM</small>', 'CRITICAL', '', 'RECOVERY PLANNED');
+  else if (p.stage === 'INVOICED') set('44 <small>BPM</small>', 'CRITICAL', '', 'AWAITING MEMBER');
+  else if (p.stage === 'PAID') set('57 <small>BPM</small>', 'RESPONDING', '', 'GOOD');
+  else if (p.stage === 'REVIVED') set('72 <small>BPM</small>', 'STABLE — ALIVE', 'stable', 'EXCELLENT');
+}
+
+function updateButtons(p) {
+  const on = (id, cond) => document.getElementById(id).disabled = !cond || demoRunning;
+  on('b-seed', !p.seeded || p.stage === 'REVIVED');
+  on('b-diag', p.seeded && p.stage === 'FLATLINED');
+  on('b-inv', p.stage === 'DIAGNOSED');
+  on('b-pay', p.stage === 'INVOICED');
+  on('b-rec', p.stage === 'PAID');
+  document.getElementById('b-demo').disabled = demoRunning || busy;
+}
+
+/* ---- counter: timed count-up with a surge when money lands ---- */
+let counterAnim = null;
+function animateCounter(target) {
+  const el = document.getElementById('counter'), box = document.getElementById('counterbox');
+  if (target > lastTarget) {           // money landed — make the room feel it
+    box.classList.remove('surge'); void box.offsetWidth; box.classList.add('surge');
+  }
+  lastTarget = target;
+  const from = displayedTotal, start = performance.now(), dur = 1400;
+  if (counterAnim) cancelAnimationFrame(counterAnim);
+  const tick = now => {
+    const t = Math.min(1, (now - start) / dur), ease = 1 - Math.pow(1 - t, 3);
+    displayedTotal = from + (target - from) * ease;
+    el.textContent = displayedTotal.toFixed(2);
+    if (t < 1) counterAnim = requestAnimationFrame(tick);
+  };
+  counterAnim = requestAnimationFrame(tick);
+}
+
+/* ---- captions + demo mode ---- */
+function setCaption(text, tone) {
+  document.getElementById('captiontext').textContent = text;
+  document.getElementById('caption').className = tone || '';
+}
+const DEMO_STEPS = [
+  { path:'/api/seed',     from:['EMPTY','REVIVED'], to:'FLATLINED',
+    pre:'A member\u2019s payment just failed. This is where PayPal gives up on them.',
+    post:'FLATLINED. Subscription suspended, balance unpaid — and the member was never told.' },
+  { path:'/api/diagnose', from:['FLATLINED'], to:'DIAGNOSED',
+    pre:'The agent reads the failure record — failed payments, suspension note, exact balance.',
+    post:'DIAGNOSED. Cause found, amount pinned down, and a plain-language message written for the member.' },
+  { path:'/api/invoice',  from:['DIAGNOSED'], to:'INVOICED',
+    pre:'One recovery invoice — exactly the missed amount, explanation riding on it.',
+    post:'INVOICED. A real PayPal invoice, sent. No dunning chain, no spam folder roulette.' },
+  { path:'/api/pay',      from:['INVOICED'], to:'PAID',
+    pre:'The member pays the invoice.',
+    post:'PAID. First heartbeat. The money is in motion.' },
+  { path:'/api/recover',  from:['PAID'], to:'REVIVED',
+    pre:'Recovery completes. Subscription reactivated.',
+    post:'REVIVED. Member back, revenue back — and the counter below is tallied from PayPal\u2019s own invoice payment records.' },
+];
+async function runDemo() {
+  if (demoRunning || busy) return;
+  demoRunning = true; document.body.classList.add('demo-running');
+  if (S) updateButtons(S.patient);
+  document.getElementById('b-demo').disabled = true;
+  setCaption('A member\u2019s payment just failed. Watch what PayPal does with that — then watch what Resurrection does.', '');
+  await sleep(2800);
+  try {
+    for (const step of DEMO_STEPS) {
+      let stage = S ? S.patient.stage : 'EMPTY';
+      if (!step.from.includes(stage)) continue;      // already past this beat
+      setCaption(step.pre, step.to === 'FLATLINED' ? '' : 'mid');
+      await sleep(2100);
+      const before = stage;
+      const s = await api(step.path);
+      if (!s || !s.patient) { setCaption('The demo hit a snag — check the error line under Controls.', ''); break; }
+      if (s.patient.stage === before && step.path === '/api/pay') {
+        setCaption('Still waiting on the member\u2019s payment. In the live sandbox, the payment is recorded through PayPal\u2019s record-payment API — then run the demo again to finish the recovery.', 'mid');
+        break;
+      }
+      if (s.patient.stage !== step.to) {
+        setCaption('That step didn\u2019t land — check the error line under Controls, fix it, and run the demo again.', '');
+        break;
+      }
+      setCaption(step.post, step.to === 'REVIVED' ? 'good' : (step.to === 'FLATLINED' ? '' : 'mid'));
+      await sleep(step.to === 'REVIVED' ? 3600 : 2500);
+    }
+    if (S && S.patient.stage === 'REVIVED')
+      setCaption('That subscription was dead. Now it isn\u2019t. Every dead subscription is dead transaction volume — for the merchant and for PayPal.', 'good');
+  } finally {
+    demoRunning = false; document.body.classList.remove('demo-running');
+    if (S) updateButtons(S.patient);
+  }
+}
+document.getElementById('b-demo').onclick = runDemo;
+
+/* ---- manual controls ---- */
+const bind = (id, path) => document.getElementById(id).onclick = () => api(path);
+bind('b-seed', '/api/seed'); bind('b-diag', '/api/diagnose');
+bind('b-inv', '/api/invoice'); bind('b-pay', '/api/pay');
+bind('b-rec', '/api/recover');
+setInterval(() => api('/api/state'), 1500);
+api('/api/state');
+
+/* ---- EKG ---- */
+const cv = document.getElementById('ekg'), ctx = cv.getContext('2d');
+let phase = 0;
+function beat(t, strength) {           // one heartbeat waveform, t in [0,1)
+  if (strength <= 0) return 0;
+  let v = 0;
+  v += Math.exp(-Math.pow((t - 0.18) * 22, 2)) * 0.12;          // P wave
+  v -= Math.exp(-Math.pow((t - 0.30) * 60, 2)) * 0.18;          // Q dip
+  v += Math.exp(-Math.pow((t - 0.33) * 55, 2)) * 1.0;           // R spike
+  v -= Math.exp(-Math.pow((t - 0.37) * 50, 2)) * 0.30;          // S dip
+  v += Math.exp(-Math.pow((t - 0.55) * 14, 2)) * 0.22;          // T wave
+  return v * strength;
+}
+function drawEKG() {
+  const w = cv.width, h = cv.height, mid = h * 0.60;
+  ctx.fillStyle = 'rgba(4,7,10,0.28)'; ctx.fillRect(0, 0, w, h);
+  // faint monitor grid
+  ctx.strokeStyle = 'rgba(62,166,255,0.05)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let gx = 0; gx <= w; gx += 46) { ctx.moveTo(gx, 0); ctx.lineTo(gx, h); }
+  for (let gy = 0; gy <= h; gy += 30) { ctx.moveTo(0, gy); ctx.lineTo(w, gy); }
+  ctx.stroke();
+  const stage = S ? S.patient.stage : 'EMPTY';
+  const status = S ? S.patient.status : null;
+  let strength = 0, rate = 0, color = '#ff4d5e';
+  if (stage === 'REVIVED' || status === 'ACTIVE') { strength = 1; rate = 1.15; color = '#2ee06f'; }
+  else if (stage === 'PAID') { strength = 0.55; rate = 0.8; color = '#ffb02e'; }
+  else if (stage === 'INVOICED' || stage === 'DIAGNOSED') { strength = 0.15; rate = 0.5; color = '#ff4d5e'; }
+  ctx.save();
+  ctx.shadowColor = color; ctx.shadowBlur = strength > 0 ? 12 : 6;
+  ctx.strokeStyle = color; ctx.lineWidth = 2.6; ctx.beginPath();
+  for (let x = 0; x < w; x++) {
+    const t = (x / w * 2 + phase) % 1;
+    let y = mid - beat(t, strength) * h * 0.44;
+    if (strength === 0) y = mid + Math.sin(x * 0.3 + phase * 9) * 0.7; // flatline shimmer
+    x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke(); ctx.restore();
+  phase += 0.008 * (rate || 0.4);
+  requestAnimationFrame(drawEKG);
+}
+drawEKG();
+</script>
+</body>
+</html>
