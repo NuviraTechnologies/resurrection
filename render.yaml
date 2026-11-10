@@ -1,0 +1,23 @@
+# Render Blueprint — Resurrection (PayPal AI Hackathon entry)
+# Free web service. The app is zero-dependency Python (stdlib only), so
+# there is nothing to install. Deploy: New > Blueprint in Render, point
+# it at the GitHub repo, then set the two PayPal secrets in the dashboard
+# (they are declared with sync: false — no values live in this file).
+# Without the secrets the service runs in SIM MODE (clearly labeled).
+services:
+  - type: web
+    name: resurrection
+    env: python
+    plan: free
+    buildCommand: echo "zero-dependency Python stdlib app - nothing to build"
+    startCommand: python3 app.py
+    healthCheckPath: /api/health
+    envVars:
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: RESURRECTION_SUBSCRIPTION_ID
+        sync: false
